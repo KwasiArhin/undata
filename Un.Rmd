@@ -1,0 +1,128 @@
+---
+title: "United Nations General Assembly Voting Data Analysis"
+output: html_document
+---
+
+The unvote package consists the voting history of countries in the United Nations General Assembly from 1946 to 2015. The United Nations play a intergral part in world politics so it would be intresting to see what side each country votes on. 
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
+```
+
+### Explore the data
+
+```{r}
+library(ggplot2)
+library(unvotes)
+library(dplyr)
+library(lubridate)
+library(ggthemes)
+library(tidyr)
+```
+
+The package contains three data set. The first is the history of each country's vote, with more than 700,000 rows.
+
+```{r}
+un_votes
+```
+
+The second dataset contains information about each roll call vote, including the date, description, and relevant resolution that was voted on.
+
+```{r}
+un_roll_calls
+```
+
+The last data set contains relationships between each vote and six issues, they are "Palestinian conflict", "Nuclear weapons and nuclear material", "Arms control and disarmament", "Human rights", "Colonialism" and "Economic development". These six issues are the biggest problems that the United Nations deals with on a consitent basis. 
+
+```{r}
+un_roll_call_issues
+```
+
+### First, which issue(issues) have been voted the most? 
+
+```{r}
+un_roll_call_issues %>% count(issue, sort=TRUE)
+```
+As we all know the Palestinian conflict is always on the forefront of the united nations agenda. So its no suprise that the issue tops the list. What I am suprised with is the fact that economic development falls so far behind relatively. 
+### How often a country voted "yes" from 1946 to 2015?
+
+```{r}
+by_country <- un_votes %>% group_by(country) %>% summarize(votes = n(),
+pct_yes = mean(vote == 'yes',)
+by_country
+```
+
+### Percentage yes vote high countries from 1946 to 2015
+
+```{r}
+arrange(by_country, desc(pct_yes))
+```
+
+### Percentage yes vote low countries from 1946 to 2015
+
+```{r}
+by_country[order(by_country$pct_yes),]
+```
+
+### Percentage yes vote high countries and years
+
+```{r}
+join1 <- un_votes %>% inner_join(un_roll_calls, by = 'rcid')
+by_country_year <- join1 %>% group_by(country, year=year(date)) %>% summarise(votes=n(), pct_yes = mean(vote=='yes'))
+arrange(by_country_year, desc(pct_yes))
+```
+
+### Percentage yes vote low countries and years
+
+```{r}
+by_country_year[order(by_country_year$pct_yes),]
+```
+
+### Let's look at three countries - China, US and Russia's "Yes" vote trend in percent over year.
+
+```{r}
+countries <- c('China', 'United States of America','Russian Federation')
+by_country_year %>% filter(country %in% countries) %>% 
+  ggplot(aes(x=year, y=pct_yes, color=country)) + geom_line() + 
+  ylab("% of votes are 'Yes'") + ggtitle("Trend in percentage Yes Votes of China, US and Russia 1946-2015") + theme_bw()
+```
+
+China's missing data can be attributed the fact the data seems to excluding China from 1945 to 1971.
+### Let's look at those six issues, how were they voted overtime by the above three countries? 
+
+```{r}
+join1 %>% filter(country %in% countries) %>% 
+  inner_join(un_roll_call_issues, by='rcid') %>% 
+  group_by(year=year(date), country, issue) %>% 
+  summarise(votes=n(), pct_yes=mean(vote=='yes')) %>% 
+  ggplot(aes(x=year, y=pct_yes, color=country)) + 
+  geom_point() + 
+  geom_smooth(se=FALSE) + facet_wrap(~issue) + ylab("% of votes are 'Yes'") +
+  ggtitle('Trend in Percentage Yes Votes by Issues for China, US and Russia')
+```
+
+Currently China and Russia oppose the US quite vehemently. The only issues Russia and the US mutually agree on is on matters concerning weapons. Which for a long time people didnt believe possible. But after the cold war things have drastically change. 
+### Among these three countries, which countries voted "yes" the most and the least for what issues?
+
+```{r}
+join2 <- join1 %>% filter(country %in% countries) %>% 
+  inner_join(un_roll_call_issues, by='rcid') %>% 
+  group_by(country, issue) %>% 
+  summarise(votes=n(), pct_yes=mean(vote=='yes'))
+ggplot(aes(x=country, y=pct_yes, fill = issue), data = join2) + geom_bar(stat = 'identity', position = position_dodge()) + ggtitle('China, US, Russia and the UN Issues')
+```
+
+
+This is just to give another visual on how much a specific country votes yes on a specific topic. 
+
+
+
+### Interpretation of the results
+1)This confirmed my suspicion that the Russian-Chineese view is closely aligned. While the United States viewpoint is on the opposite side of the spectrum. 
+2)The Plastinian conflict continues to be a polarizing world topic.
+
+
+
+### The End 
+
+This is very much a premelinary dive into the dataset. There are still many other questions that could be if a deeper dive was adminstered. 
